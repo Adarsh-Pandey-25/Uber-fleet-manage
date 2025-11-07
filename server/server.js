@@ -56,8 +56,17 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Add caching headers for static responses
+app.use((req, res, next) => {
+  // Cache API responses for 30 seconds (except auth endpoints)
+  if (req.path.startsWith('/api/') && !req.path.includes('/auth')) {
+    res.set('Cache-Control', 'public, max-age=30');
+  }
+  next();
+});
 
 // Serve uploaded files
 import path from 'path';
@@ -112,7 +121,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
 });
 
-// MongoDB Connection
+// MongoDB Connection with caching for serverless
+let cachedConnection = null;
+
 const connectDB = async () => {
   try {
     if (!process.env.MONGODB_URI) {
@@ -120,22 +131,28 @@ const connectDB = async () => {
       throw new Error('MONGODB_URI is not defined');
     }
     
-    // Check if already connected
-    if (mongoose.connection.readyState === 1) {
-      console.log('✅ Already connected to MongoDB');
-      return;
+    // Return cached connection if available and connected
+    if (cachedConnection && mongoose.connection.readyState === 1) {
+      console.log('✅ Using cached MongoDB connection');
+      return cachedConnection;
     }
     
-    // Close existing connection if any
-    if (mongoose.connection.readyState !== 0) {
+    // Close existing connection if any (but not connected)
+    if (mongoose.connection.readyState !== 0 && mongoose.connection.readyState !== 1) {
       await mongoose.connection.close();
     }
     
-    // Connect with options for serverless
-    await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
+    // Connect with optimized options for serverless
+    cachedConnection = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 3000, // Faster timeout
       socketTimeoutMS: 45000,
+      maxPoolSize: 10, // Connection pool
+      minPoolSize: 1,
+      maxIdleTimeMS: 30000,
+      bufferCommands: false, // Disable mongoose buffering
+      bufferMaxEntries: 0,
     });
+    
     console.log('✅ Connected to MongoDB Atlas');
     isConnected = true;
     
@@ -145,20 +162,12 @@ const connectDB = async () => {
         console.log(`🚀 Server running on port ${PORT}`);
       });
     }
+    
+    return cachedConnection;
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
-    console.error('Error code:', error.code);
-    console.error('Error name:', error.name);
     isConnected = false;
-    if (error.code === 'ENOTFOUND') {
-      console.error('\n💡 Troubleshooting tips:');
-      console.error('1. Check if your MongoDB Atlas connection string is correct');
-      console.error('2. Make sure you replaced <password> and <dbname> in the connection string');
-      console.error('3. Verify your MongoDB Atlas cluster is running and accessible');
-      console.error('4. Check your network connection');
-      console.error('5. Ensure your IP address is whitelisted in MongoDB Atlas Network Access (or use 0.0.0.0/0)');
-    }
-    // Don't exit in Vercel - let it retry
+    cachedConnection = null;
     if (process.env.VERCEL !== '1') {
       process.exit(1);
     }
@@ -171,16 +180,17 @@ connectDB().catch((error) => {
   console.error('Failed to connect to MongoDB:', error);
 });
 
-// Simplified middleware - just check connection state, don't block
-app.use((req, res, next) => {
+// Optimized middleware - ensure connection without blocking
+app.use(async (req, res, next) => {
   // Skip connection check for health/info endpoints
   if (req.path === '/api/health' || req.path === '/api' || req.path === '/') {
     return next();
   }
   
-  // If not connected, try to connect (non-blocking)
+  // Ensure connection is ready (fast path if already connected)
   if (mongoose.connection.readyState !== 1) {
     if (mongoose.connection.readyState === 0) {
+      // Connect in background, don't wait
       connectDB().catch(console.error);
     }
   }

@@ -62,44 +62,34 @@ router.post('/driver/login', [
   body('password').notEmpty(),
 ], async (req, res) => {
   try {
-    // Check MongoDB connection first
+    // Quick connection check - use cached connection if available
     if (mongoose.connection.readyState !== 1) {
-      console.log('MongoDB not connected, state:', mongoose.connection.readyState);
-      // Try to connect if not connected
+      // Fast reconnect if disconnected
       if (mongoose.connection.readyState === 0) {
         try {
           const MONGODB_URI = process.env.MONGODB_URI;
           if (!MONGODB_URI) {
-            console.error('MONGODB_URI is not set in environment variables');
             return res.status(500).json({ 
               message: 'Database configuration error',
               error: 'MONGODB_URI not set'
             });
           }
           
-          // Close existing connection if any
-          if (mongoose.connection.readyState !== 0) {
-            await mongoose.connection.close();
-          }
-          
-          // Connect with timeout options
+          // Quick connect with shorter timeout
           await mongoose.connect(MONGODB_URI, {
-            serverSelectionTimeoutMS: 10000,
+            serverSelectionTimeoutMS: 3000,
             socketTimeoutMS: 45000,
+            maxPoolSize: 10,
+            bufferCommands: false,
           });
-          console.log('MongoDB connected successfully');
         } catch (connError) {
           console.error('Connection failed:', connError.message);
-          console.error('Connection error code:', connError.code);
-          console.error('Connection error name:', connError.name);
           return res.status(503).json({ 
             message: 'Database connection unavailable. Please try again.',
-            error: connError.message || 'DB_CONNECTION_ERROR'
+            error: 'DB_CONNECTION_ERROR'
           });
         }
       } else {
-        // Connection is in progress or error state, wait a bit and retry
-        console.log('MongoDB connection in state:', mongoose.connection.readyState);
         return res.status(503).json({ 
           message: 'Database connection unavailable. Please try again.',
           error: 'DB_CONNECTION_IN_PROGRESS'

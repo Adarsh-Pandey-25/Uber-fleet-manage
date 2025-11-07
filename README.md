@@ -1,5 +1,18 @@
 # Uber Fleet Driver Management System
 
+## 🚀 Quick Deploy to Vercel
+
+See [VERCEL_DEPLOY.md](./VERCEL_DEPLOY.md) for detailed deployment instructions.
+
+**Quick Start:**
+1. Deploy backend: `cd server && vercel`
+2. Deploy frontend: `cd client && vercel`
+3. Set environment variables in Vercel dashboard
+
+---
+
+# Uber Fleet Driver Management System
+
 A full-stack web application for managing Uber fleet drivers and their daily operations using the MERN stack.
 
 ## 🚀 Features

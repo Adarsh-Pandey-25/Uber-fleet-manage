@@ -155,28 +155,37 @@ const connectDB = async () => {
   }
 };
 
-// MongoDB connection state
-let isConnected = false;
-
-// Connect to MongoDB
-connectDB().then(() => {
-  isConnected = true;
-}).catch((error) => {
+// Connect to MongoDB (non-blocking for Vercel)
+connectDB().catch((error) => {
   console.error('Failed to connect to MongoDB:', error);
-  isConnected = false;
 });
 
-// Middleware to check MongoDB connection
-app.use((req, res, next) => {
-  if (!isConnected && mongoose.connection.readyState !== 1) {
-    // Try to reconnect if not connected
+// Middleware to ensure MongoDB connection before handling requests
+app.use(async (req, res, next) => {
+  // Skip connection check for health endpoint
+  if (req.path === '/api/health' || req.path === '/api' || req.path === '/') {
+    return next();
+  }
+  
+  // Check connection state
+  if (mongoose.connection.readyState !== 1) {
+    // Try to connect if not connected
     if (mongoose.connection.readyState === 0) {
-      connectDB().catch(console.error);
+      try {
+        await connectDB();
+      } catch (error) {
+        console.error('Connection attempt failed:', error);
+        return res.status(503).json({ 
+          message: 'Database connection not available',
+          error: 'Please try again in a moment'
+        });
+      }
+    } else {
+      return res.status(503).json({ 
+        message: 'Database connection not available',
+        error: 'Please try again in a moment'
+      });
     }
-    return res.status(503).json({ 
-      message: 'Database connection not available',
-      error: 'Please try again in a moment'
-    });
   }
   next();
 });

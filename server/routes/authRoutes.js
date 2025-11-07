@@ -61,6 +61,20 @@ router.post('/driver/login', [
   body('password').notEmpty(),
 ], async (req, res) => {
   try {
+    // Check MongoDB connection first
+    if (mongoose.connection.readyState !== 1) {
+      console.log('MongoDB not connected, attempting connection...');
+      try {
+        await connectDB();
+      } catch (connError) {
+        console.error('Connection failed:', connError);
+        return res.status(503).json({ 
+          message: 'Database connection unavailable. Please try again.',
+          error: 'DB_CONNECTION_ERROR'
+        });
+      }
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -72,14 +86,8 @@ router.post('/driver/login', [
       return res.status(400).json({ message: 'Phone and password are required' });
     }
 
-    let driver;
-    try {
-      driver = await Driver.findOne({ phone, isDeleted: false, isActive: true });
-    } catch (dbError) {
-      console.error('Database query error:', dbError);
-      return res.status(500).json({ message: 'Database error', error: dbError.message });
-    }
-
+    const driver = await Driver.findOne({ phone, isDeleted: false, isActive: true });
+    
     if (!driver) {
       return res.status(401).json({ message: 'Invalid credentials or account disabled' });
     }
@@ -89,25 +97,13 @@ router.post('/driver/login', [
       return res.status(500).json({ message: 'Account configuration error' });
     }
 
-    let isMatch;
-    try {
-      isMatch = await bcrypt.compare(password, driver.password);
-    } catch (bcryptError) {
-      console.error('Bcrypt comparison error:', bcryptError);
-      return res.status(500).json({ message: 'Authentication error' });
-    }
-
+    const isMatch = await bcrypt.compare(password, driver.password);
+    
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    let token;
-    try {
-      token = generateToken(driver._id, 'driver');
-    } catch (tokenError) {
-      console.error('Token generation error:', tokenError);
-      return res.status(500).json({ message: 'Token generation failed' });
-    }
+    const token = generateToken(driver._id, 'driver');
 
     res.json({
       token,
@@ -121,14 +117,10 @@ router.post('/driver/login', [
     });
   } catch (error) {
     console.error('Driver login error:', error);
-    console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
+    console.error('Error stack:', error.stack);
     res.status(500).json({ 
       message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message || 'Unknown error'
     });
   }
 });

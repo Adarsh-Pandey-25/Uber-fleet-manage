@@ -160,31 +160,17 @@ connectDB().catch((error) => {
   console.error('Failed to connect to MongoDB:', error);
 });
 
-// Middleware to ensure MongoDB connection before handling requests
-app.use(async (req, res, next) => {
-  // Skip connection check for health endpoint
+// Simplified middleware - just check connection state, don't block
+app.use((req, res, next) => {
+  // Skip connection check for health/info endpoints
   if (req.path === '/api/health' || req.path === '/api' || req.path === '/') {
     return next();
   }
   
-  // Check connection state
+  // If not connected, try to connect (non-blocking)
   if (mongoose.connection.readyState !== 1) {
-    // Try to connect if not connected
     if (mongoose.connection.readyState === 0) {
-      try {
-        await connectDB();
-      } catch (error) {
-        console.error('Connection attempt failed:', error);
-        return res.status(503).json({ 
-          message: 'Database connection not available',
-          error: 'Please try again in a moment'
-        });
-      }
-    } else {
-      return res.status(503).json({ 
-        message: 'Database connection not available',
-        error: 'Please try again in a moment'
-      });
+      connectDB().catch(console.error);
     }
   }
   next();

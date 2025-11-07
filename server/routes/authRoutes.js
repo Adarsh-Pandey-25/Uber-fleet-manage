@@ -68,17 +68,46 @@ router.post('/driver/login', [
 
     const { phone, password } = req.body;
 
-    const driver = await Driver.findOne({ phone, isDeleted: false, isActive: true });
+    if (!phone || !password) {
+      return res.status(400).json({ message: 'Phone and password are required' });
+    }
+
+    let driver;
+    try {
+      driver = await Driver.findOne({ phone, isDeleted: false, isActive: true });
+    } catch (dbError) {
+      console.error('Database query error:', dbError);
+      return res.status(500).json({ message: 'Database error', error: dbError.message });
+    }
+
     if (!driver) {
       return res.status(401).json({ message: 'Invalid credentials or account disabled' });
     }
 
-    const isMatch = await bcrypt.compare(password, driver.password);
+    if (!driver.password) {
+      console.error('Driver has no password set:', driver._id);
+      return res.status(500).json({ message: 'Account configuration error' });
+    }
+
+    let isMatch;
+    try {
+      isMatch = await bcrypt.compare(password, driver.password);
+    } catch (bcryptError) {
+      console.error('Bcrypt comparison error:', bcryptError);
+      return res.status(500).json({ message: 'Authentication error' });
+    }
+
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = generateToken(driver._id, 'driver');
+    let token;
+    try {
+      token = generateToken(driver._id, 'driver');
+    } catch (tokenError) {
+      console.error('Token generation error:', tokenError);
+      return res.status(500).json({ message: 'Token generation failed' });
+    }
 
     res.json({
       token,

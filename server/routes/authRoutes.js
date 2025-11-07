@@ -1,5 +1,6 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
+import mongoose from 'mongoose';
 import Admin from '../models/Admin.js';
 import Driver from '../models/Driver.js';
 import jwt from 'jsonwebtoken';
@@ -63,11 +64,27 @@ router.post('/driver/login', [
   try {
     // Check MongoDB connection first
     if (mongoose.connection.readyState !== 1) {
-      console.log('MongoDB not connected, attempting connection...');
-      try {
-        await connectDB();
-      } catch (connError) {
-        console.error('Connection failed:', connError);
+      console.log('MongoDB not connected, state:', mongoose.connection.readyState);
+      // Try to connect if not connected
+      if (mongoose.connection.readyState === 0) {
+        try {
+          const MONGODB_URI = process.env.MONGODB_URI;
+          if (!MONGODB_URI) {
+            return res.status(500).json({ 
+              message: 'Database configuration error',
+              error: 'MONGODB_URI not set'
+            });
+          }
+          await mongoose.connect(MONGODB_URI);
+          console.log('MongoDB connected successfully');
+        } catch (connError) {
+          console.error('Connection failed:', connError);
+          return res.status(503).json({ 
+            message: 'Database connection unavailable. Please try again.',
+            error: 'DB_CONNECTION_ERROR'
+          });
+        }
+      } else {
         return res.status(503).json({ 
           message: 'Database connection unavailable. Please try again.',
           error: 'DB_CONNECTION_ERROR'

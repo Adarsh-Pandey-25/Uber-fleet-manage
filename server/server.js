@@ -115,6 +115,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
 });
 
+// MongoDB connection state
+let isConnected = false;
+
 // MongoDB Connection
 const connectDB = async () => {
   try {
@@ -126,6 +129,7 @@ const connectDB = async () => {
     // Check if already connected
     if (mongoose.connection.readyState === 1) {
       console.log('✅ Already connected to MongoDB');
+      isConnected = true;
       return;
     }
     

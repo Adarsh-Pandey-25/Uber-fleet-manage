@@ -126,7 +126,16 @@ const connectDB = async () => {
       return;
     }
     
-    await mongoose.connect(process.env.MONGODB_URI);
+    // Close existing connection if any
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+    }
+    
+    // Connect with options for serverless
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
     console.log('✅ Connected to MongoDB Atlas');
     isConnected = true;
     
@@ -138,6 +147,8 @@ const connectDB = async () => {
     }
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error name:', error.name);
     isConnected = false;
     if (error.code === 'ENOTFOUND') {
       console.error('\n💡 Troubleshooting tips:');
@@ -145,7 +156,7 @@ const connectDB = async () => {
       console.error('2. Make sure you replaced <password> and <dbname> in the connection string');
       console.error('3. Verify your MongoDB Atlas cluster is running and accessible');
       console.error('4. Check your network connection');
-      console.error('5. Ensure your IP address is whitelisted in MongoDB Atlas Network Access');
+      console.error('5. Ensure your IP address is whitelisted in MongoDB Atlas Network Access (or use 0.0.0.0/0)');
     }
     // Don't exit in Vercel - let it retry
     if (process.env.VERCEL !== '1') {

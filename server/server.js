@@ -30,12 +30,31 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 const allowedOrigins = [
   'http://localhost:3000',
+  'https://client-green-phi.vercel.app',
+  'https://client-adarsh-pandeys-projects-f81698fb.vercel.app',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
 app.use(cors({
-  origin: allowedOrigins.length > 0 ? allowedOrigins : true,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin) || allowedOrigins.length === 0) {
+      callback(null, true);
+    } else {
+      // For development, allow all origins
+      if (process.env.NODE_ENV !== 'production') {
+        callback(null, true);
+      } else {
+        callback(null, true); // Allow all for now, can restrict later
+      }
+    }
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

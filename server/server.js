@@ -59,14 +59,8 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Add caching headers for static responses
-app.use((req, res, next) => {
-  // Cache API responses for 30 seconds (except auth endpoints)
-  if (req.path.startsWith('/api/') && !req.path.includes('/auth')) {
-    res.set('Cache-Control', 'public, max-age=30');
-  }
-  next();
-});
+// Add caching headers for static responses (after routes, not before)
+// Moved to individual routes to avoid conflicts
 
 // Serve uploaded files
 import path from 'path';
@@ -180,17 +174,16 @@ connectDB().catch((error) => {
   console.error('Failed to connect to MongoDB:', error);
 });
 
-// Optimized middleware - ensure connection without blocking
-app.use(async (req, res, next) => {
+// Simplified middleware - non-blocking connection check
+app.use((req, res, next) => {
   // Skip connection check for health/info endpoints
   if (req.path === '/api/health' || req.path === '/api' || req.path === '/') {
     return next();
   }
   
-  // Ensure connection is ready (fast path if already connected)
+  // If not connected, try to connect (non-blocking)
   if (mongoose.connection.readyState !== 1) {
     if (mongoose.connection.readyState === 0) {
-      // Connect in background, don't wait
       connectDB().catch(console.error);
     }
   }

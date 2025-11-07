@@ -75,12 +75,11 @@ router.post('/driver/login', [
             });
           }
           
-          // Quick connect with shorter timeout
+          // Quick connect with timeout options
           await mongoose.connect(MONGODB_URI, {
-            serverSelectionTimeoutMS: 3000,
+            serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
             maxPoolSize: 10,
-            bufferCommands: false,
           });
         } catch (connError) {
           console.error('Connection failed:', connError.message);

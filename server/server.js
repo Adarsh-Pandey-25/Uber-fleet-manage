@@ -113,19 +113,32 @@ app.get('/api/health', (req, res) => {
 });
 
 // MongoDB Connection
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
+const connectDB = async () => {
+  try {
+    if (!process.env.MONGODB_URI) {
+      console.error('❌ MONGODB_URI is not defined');
+      throw new Error('MONGODB_URI is not defined');
+    }
+    
+    // Check if already connected
+    if (mongoose.connection.readyState === 1) {
+      console.log('✅ Already connected to MongoDB');
+      return;
+    }
+    
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('✅ Connected to MongoDB Atlas');
+    isConnected = true;
+    
     // Only start server if not in Vercel serverless environment
     if (process.env.VERCEL !== '1') {
       app.listen(PORT, () => {
         console.log(`🚀 Server running on port ${PORT}`);
       });
     }
-  })
-  .catch((error) => {
+  } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
+    isConnected = false;
     if (error.code === 'ENOTFOUND') {
       console.error('\n💡 Troubleshooting tips:');
       console.error('1. Check if your MongoDB Atlas connection string is correct');
@@ -134,10 +147,39 @@ mongoose
       console.error('4. Check your network connection');
       console.error('5. Ensure your IP address is whitelisted in MongoDB Atlas Network Access');
     }
+    // Don't exit in Vercel - let it retry
     if (process.env.VERCEL !== '1') {
       process.exit(1);
     }
-  });
+    throw error;
+  }
+};
+
+// MongoDB connection state
+let isConnected = false;
+
+// Connect to MongoDB
+connectDB().then(() => {
+  isConnected = true;
+}).catch((error) => {
+  console.error('Failed to connect to MongoDB:', error);
+  isConnected = false;
+});
+
+// Middleware to check MongoDB connection
+app.use((req, res, next) => {
+  if (!isConnected && mongoose.connection.readyState !== 1) {
+    // Try to reconnect if not connected
+    if (mongoose.connection.readyState === 0) {
+      connectDB().catch(console.error);
+    }
+    return res.status(503).json({ 
+      message: 'Database connection not available',
+      error: 'Please try again in a moment'
+    });
+  }
+  next();
+});
 
 export default app;
 

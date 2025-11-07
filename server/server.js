@@ -53,6 +53,22 @@ app.use('/api/drivers', driverRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
+// Root API endpoint
+app.get('/api', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Uber Fleet Driver Management API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      drivers: '/api/drivers',
+      logs: '/api/logs',
+      dashboard: '/api/dashboard',
+      health: '/api/health'
+    }
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });

@@ -47,6 +47,25 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    status: 'OK',
+    message: 'Uber Fleet Driver Management API Server',
+    version: '1.0.0',
+    documentation: {
+      api: '/api',
+      health: '/api/health',
+      endpoints: {
+        auth: '/api/auth',
+        drivers: '/api/drivers',
+        logs: '/api/logs',
+        dashboard: '/api/dashboard'
+      }
+    }
+  });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/drivers', driverRoutes);

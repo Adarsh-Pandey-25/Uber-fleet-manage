@@ -115,9 +115,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
 });
 
-// MongoDB Connection with caching for serverless
-let cachedConnection = null;
-
+// MongoDB Connection
 const connectDB = async () => {
   try {
     if (!process.env.MONGODB_URI) {
@@ -125,10 +123,10 @@ const connectDB = async () => {
       throw new Error('MONGODB_URI is not defined');
     }
     
-    // Return cached connection if available and connected
-    if (cachedConnection && mongoose.connection.readyState === 1) {
-      console.log('✅ Using cached MongoDB connection');
-      return cachedConnection;
+    // Check if already connected
+    if (mongoose.connection.readyState === 1) {
+      console.log('✅ Already connected to MongoDB');
+      return;
     }
     
     // Close existing connection if any (but not connected)
@@ -137,14 +135,11 @@ const connectDB = async () => {
     }
     
     // Connect with optimized options for serverless
-    cachedConnection = await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 3000, // Faster timeout
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      maxPoolSize: 10, // Connection pool
+      maxPoolSize: 10,
       minPoolSize: 1,
-      maxIdleTimeMS: 30000,
-      bufferCommands: false, // Disable mongoose buffering
-      bufferMaxEntries: 0,
     });
     
     console.log('✅ Connected to MongoDB Atlas');
@@ -156,12 +151,9 @@ const connectDB = async () => {
         console.log(`🚀 Server running on port ${PORT}`);
       });
     }
-    
-    return cachedConnection;
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
     isConnected = false;
-    cachedConnection = null;
     if (process.env.VERCEL !== '1') {
       process.exit(1);
     }

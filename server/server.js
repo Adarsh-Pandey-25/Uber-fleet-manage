@@ -57,6 +57,24 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Handle CORS preflight explicitly
 app.options('*', cors());
 
+// Defensive CORS headers to ensure responses always include required headers
+app.use((req, res, next) => {
+  const requestOrigin = req.headers.origin;
+  if (requestOrigin) {
+    res.header('Access-Control-Allow-Origin', requestOrigin);
+    res.header('Vary', 'Origin');
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 // Add caching headers for static responses (after routes, not before)
 // Moved to individual routes to avoid conflicts
 

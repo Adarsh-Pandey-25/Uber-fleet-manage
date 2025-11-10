@@ -54,6 +54,8 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Handle CORS preflight explicitly
+app.options('*', cors());
 
 // Add caching headers for static responses (after routes, not before)
 // Moved to individual routes to avoid conflicts
@@ -163,6 +165,11 @@ app.use((req, res, next) => {
   // Skip connection check for health/info endpoints
   if (req.path === '/api/health' || req.path === '/api' || req.path === '/') {
     return next();
+  }
+  
+  // Always allow preflight requests to succeed with CORS headers
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
   }
   
   // If config is invalid, fail fast with a clear error

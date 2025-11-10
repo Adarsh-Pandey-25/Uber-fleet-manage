@@ -9,19 +9,15 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 
 dotenv.config();
 
-// Validate required environment variables
+// Validate required environment variables without crashing the deploy
+let configError = null;
 if (!process.env.MONGODB_URI) {
-  console.error('❌ Error: MONGODB_URI is not defined in .env file');
-  console.error('Please create a .env file in the server directory with:');
-  console.error('MONGODB_URI=your_mongodb_atlas_connection_string');
-  console.error('JWT_SECRET=your_jwt_secret_key');
-  console.error('PORT=5000');
-  process.exit(1);
+  console.error('❌ Warning: MONGODB_URI is not defined in environment variables.');
+  configError = 'MONGODB_URI is not configured';
 }
-
 if (!process.env.JWT_SECRET) {
-  console.error('❌ Error: JWT_SECRET is not defined in .env file');
-  process.exit(1);
+  console.error('❌ Warning: JWT_SECRET is not defined in environment variables.');
+  configError = (configError ? configError + ' and ' : '') + 'JWT_SECRET is not configured';
 }
 
 const app = express();
@@ -112,7 +108,7 @@ app.get('/api', (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running' });
+  res.json({ status: 'OK', message: 'Server is running', configError: configError || null });
 });
 
 // MongoDB connection state
@@ -122,12 +118,11 @@ let isConnected = false;
 const connectDB = async () => {
   try {
     if (!process.env.MONGODB_URI) {
-      console.error('❌ MONGODB_URI is not defined');
       throw new Error('MONGODB_URI is not defined');
     }
     
     // Check if already connected
-        if (mongoose.connection.readyState === 1) {
+    if (mongoose.connection.readyState === 1) {
       isConnected = true;
       return;
     }
@@ -149,14 +144,11 @@ const connectDB = async () => {
     
     // Only start server if not in Vercel serverless environment
     if (process.env.VERCEL !== '1') {
-          app.listen(PORT, () => {});
+      app.listen(PORT, () => {});
     }
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
     isConnected = false;
-    if (process.env.VERCEL !== '1') {
-      process.exit(1);
-    }
     throw error;
   }
 };
@@ -171,6 +163,11 @@ app.use((req, res, next) => {
   // Skip connection check for health/info endpoints
   if (req.path === '/api/health' || req.path === '/api' || req.path === '/') {
     return next();
+  }
+  
+  // If config is invalid, fail fast with a clear error
+  if (configError) {
+    return res.status(500).json({ message: 'Server configuration error', details: configError });
   }
   
   // If not connected, try to connect (non-blocking)

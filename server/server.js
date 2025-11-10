@@ -127,8 +127,7 @@ const connectDB = async () => {
     }
     
     // Check if already connected
-    if (mongoose.connection.readyState === 1) {
-      console.log('✅ Already connected to MongoDB');
+        if (mongoose.connection.readyState === 1) {
       isConnected = true;
       return;
     }
@@ -146,14 +145,11 @@ const connectDB = async () => {
       minPoolSize: 1,
     });
     
-    console.log('✅ Connected to MongoDB Atlas');
     isConnected = true;
     
     // Only start server if not in Vercel serverless environment
     if (process.env.VERCEL !== '1') {
-      app.listen(PORT, () => {
-        console.log(`🚀 Server running on port ${PORT}`);
-      });
+          app.listen(PORT, () => {});
     }
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);

@@ -6,6 +6,7 @@ import { authenticateToken, isAdmin } from '../middleware/authMiddleware.js';
 import createCsvWriter from 'csv-writer';
 import PDFDocument from 'pdfkit';
 import upload from '../middleware/uploadMiddleware.js';
+import ExcelJS from 'exceljs';
 
 const router = express.Router();
 
@@ -326,6 +327,72 @@ router.get('/export/csv', authenticateToken, async (req, res) => {
     res.send(csv);
   } catch (error) {
     console.error('Export CSV error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Export logs as XLSX (Excel)
+router.get('/export/xlsx', authenticateToken, async (req, res) => {
+  try {
+    const { role, userId } = req.user;
+    const { driverId, startDate, endDate } = req.query;
+
+    const query = {};
+    if (role === 'driver') {
+      query.driverId = new mongoose.Types.ObjectId(userId);
+    } else if (driverId) {
+      query.driverId = new mongoose.Types.ObjectId(driverId);
+    }
+
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) query.date.$gte = new Date(startDate);
+      if (endDate) query.date.$lte = new Date(endDate);
+    }
+
+    const logs = await DailyLog.find(query)
+      .populate('driverId', 'name phone email')
+      .sort({ date: -1 });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Driver Logs');
+
+    worksheet.columns = [
+      { header: 'Date', key: 'date', width: 15 },
+      { header: 'Driver Name', key: 'driverName', width: 24 },
+      { header: 'Driver Number', key: 'driverPhone', width: 18 },
+      { header: 'Total KM', key: 'totalKm', width: 12 },
+      { header: 'Fuel Cost', key: 'fuelCost', width: 14 },
+      { header: 'Other Expenses', key: 'otherExpenses', width: 16 },
+      { header: 'Cash Collected', key: 'cashCollected', width: 16 },
+      { header: 'Online Collected', key: 'onlineCollected', width: 17 },
+      { header: 'Total Earnings', key: 'totalEarnings', width: 16 },
+    ];
+
+    logs.forEach((log) => {
+      worksheet.addRow({
+        date: log.date.toISOString().split('T')[0],
+        driverName: log.driverId.name,
+        driverPhone: log.driverId.phone || '',
+        totalKm: log.totalKm,
+        fuelCost: log.fuelCost,
+        otherExpenses: log.otherExpenses,
+        cashCollected: log.cashCollected,
+        onlineCollected: log.onlineCollected,
+        totalEarnings: log.totalEarnings,
+      });
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', 'attachment; filename=driver-logs.xlsx');
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Export XLSX error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

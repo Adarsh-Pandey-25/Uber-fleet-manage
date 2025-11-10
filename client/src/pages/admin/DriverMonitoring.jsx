@@ -59,8 +59,12 @@ const DriverMonitoring = () => {
         ...(dateRange.endDate && { endDate: dateRange.endDate }),
       })
 
-      const response = await axios.get(`/api/logs/export/${format}?${params}`, {
+      // Ensure we hit the backend API domain in production and include auth token
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      const token = localStorage.getItem('token')
+      const response = await axios.get(`${API_URL}/logs/export/${format}?${params}`, {
         responseType: 'blob',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
 
       const url = window.URL.createObjectURL(new Blob([response.data]))
@@ -154,10 +158,10 @@ const DriverMonitoring = () => {
           {selectedDriverId && (
             <div className="mt-4 flex gap-2">
               <button
-                onClick={() => handleExport('csv')}
+                onClick={() => handleExport('xlsx')}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md"
               >
-                Export CSV
+                Export Excel
               </button>
               <button
                 onClick={() => handleExport('pdf')}

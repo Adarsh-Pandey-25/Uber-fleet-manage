@@ -95,13 +95,7 @@ router.get('/driver', authenticateToken, async (req, res) => {
       date: { $gte: startDate, $lte: now },
     };
 
-    console.log('Driver dashboard query:', {
-      userId,
-      driverObjectId: driverObjectId.toString(),
-      period,
-      startDate: startDate.toISOString(),
-      endDate: now.toISOString(),
-    });
+    // debug logs removed
 
     // Aggregate stats
     const stats = await DailyLog.aggregate([
@@ -120,7 +114,7 @@ router.get('/driver', authenticateToken, async (req, res) => {
       },
     ]);
 
-    console.log('Aggregation result:', JSON.stringify(stats, null, 2));
+    // debug logs removed
 
     const result = stats[0] || {
       totalKm: 0,
@@ -130,7 +124,7 @@ router.get('/driver', authenticateToken, async (req, res) => {
       totalEarnings: 0,
     };
 
-    console.log('Final result:', result);
+    // debug logs removed
 
     res.json({
       period,

@@ -149,7 +149,7 @@ const DriverDailyReport = () => {
       <div className="px-4 py-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Daily Report</h1>
 
-        <div className="bg-white p-6 rounded-lg shadow-md max-w-2xl">
+        <div className="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto">
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Select Date

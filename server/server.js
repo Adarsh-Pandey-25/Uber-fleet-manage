@@ -60,6 +60,8 @@ app.options('*', cors());
 // Defensive CORS headers to ensure responses always include required headers
 app.use((req, res, next) => {
   const requestOrigin = req.headers.origin;
+  const requestedHeaders = req.headers['access-control-request-headers'];
+  const requestedMethod = req.headers['access-control-request-method'];
   if (requestOrigin) {
     res.header('Access-Control-Allow-Origin', requestOrigin);
     res.header('Vary', 'Origin');
@@ -67,8 +69,8 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
   }
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', requestedHeaders || 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Methods', requestedMethod || 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
   }

@@ -6,10 +6,18 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, '../uploads/expense-bills');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+// Select storage directory (Vercel functions can only write to /tmp)
+const isVercel = process.env.VERCEL === '1';
+const uploadsDir = isVercel
+  ? '/tmp/expense-bills'
+  : path.join(__dirname, '../uploads/expense-bills');
+// Ensure directory exists (best-effort on each cold start)
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch (e) {
+  // In serverless, concurrent cold starts might race; ignore if it already exists
 }
 
 // Configure storage
